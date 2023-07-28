@@ -4,14 +4,14 @@ buildscript {
 		jcenter()
 	}
 	dependencies {
-		classpath 'com.android.tools.build:gradle:4.2.0'
+		classpath 'com.android.tools.build:gradle:7.3.0'
 	}
 }
 
 allprojects {
 	repositories {
 		google()
-		jcenter()
+		mavenCentral()
 		flatDir {
 			dirs 'libs'
 		}
@@ -26,8 +26,8 @@ android {
 	defaultConfig {
 		minSdkVersion 22
 		targetSdkVersion 31
-		versionCode 166
-		versionName "1.41.69-te3cb98213-g38061656a57"
+		versionCode 170
+		versionName "1.43.55-tc783f2822-g0ccb93e1156"
 	}
 	compileOptions {
 		sourceCompatibility 1.8
@@ -51,7 +51,7 @@ dependencies {
 	implementation "androidx.security:security-crypto:1.1.0-alpha03"
 	implementation "androidx.work:work-runtime:2.7.0"
 	implementation ':ipn@aar'
-	testCompile "junit:junit:4.12"
+	testImplementation "junit:junit:4.12"
 
 	// Non-free dependencies.
 	playImplementation 'com.google.android.gms:play-services-auth:18.0.0'

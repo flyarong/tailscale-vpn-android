@@ -188,18 +188,15 @@ type SetLoginServerEvent struct {
 
 // UIEvent types.
 type (
-	ToggleEvent                    struct{}
-	ReauthEvent                    struct{}
-	BugEvent                       struct{}
-	WebAuthEvent                   struct{}
-	GoogleAuthEvent                struct{}
-	LogoutEvent                    struct{}
-	OSSLicensesEvent               struct{}
-	BeExitNodeEvent                bool
-	ExitAllowLANEvent              bool
-	AllowIncomingTransactionsEvent bool
-	UseTailscaleDNSEvent           bool
-	UseTailscaleSubnetsEvent       bool
+	ToggleEvent       struct{}
+	ReauthEvent       struct{}
+	BugEvent          struct{}
+	WebAuthEvent      struct{}
+	GoogleAuthEvent   struct{}
+	LogoutEvent       struct{}
+	OSSLicensesEvent  struct{}
+	BeExitNodeEvent   bool
+	ExitAllowLANEvent bool
 )
 
 // serverOAuthID is the OAuth ID of the tailscale-android server, used
@@ -354,13 +351,15 @@ func (a *App) runBackend() error {
 		case n := <-notifications:
 			exitWasOnline := state.ExitStatus == ExitOnline
 			if p := n.Prefs; p != nil && n.Prefs.Valid() {
-				first := state.Prefs == nil
 				state.Prefs = p.AsStruct()
 				state.updateExitNodes()
-				if first {
-					state.Prefs.Hostname = a.hostname()
-					go b.backend.SetPrefs(state.Prefs)
-				}
+				a.setPrefs(state.Prefs)
+			}
+			first := state.Prefs == nil
+			if first {
+				state.Prefs = ipn.NewPrefs()
+				state.Prefs.Hostname = a.hostname()
+				go b.backend.SetPrefs(state.Prefs)
 				a.setPrefs(state.Prefs)
 			}
 			if s := n.State; s != nil {
@@ -436,15 +435,6 @@ func (a *App) runBackend() error {
 				go b.backend.SetPrefs(state.Prefs)
 			case ExitAllowLANEvent:
 				state.Prefs.ExitNodeAllowLANAccess = bool(e)
-				go b.backend.SetPrefs(state.Prefs)
-			case UseTailscaleDNSEvent:
-				state.Prefs.CorpDNS = bool(e)
-				go b.backend.SetPrefs(state.Prefs)
-			case UseTailscaleSubnetsEvent:
-				state.Prefs.RouteAll = !bool(e)
-				go b.backend.SetPrefs(state.Prefs)
-			case AllowIncomingTransactionsEvent:
-				state.Prefs.ShieldsUp = !bool(e)
 				go b.backend.SetPrefs(state.Prefs)
 			case WebAuthEvent:
 				if !signingIn {
@@ -1060,6 +1050,13 @@ func (a *App) updateState(act jni.Object, state *clientState) {
 	users := make(map[tailcfg.UserID]struct{})
 	var uiPeers []UIPeer
 	for _, p := range peers {
+		if p.Hostinfo.Valid() && p.Hostinfo.ShareeNode() {
+			// Don't show nodes that only exist in the netmap because they're
+			// owned by somebody the user shared a node with. We can't see their
+			// details (including their name) anyway, so there's nothing
+			// interesting to render.
+			continue
+		}
 		if q := state.query; q != "" {
 			// Filter peers according to search query.
 			host := strings.ToLower(p.Hostinfo.Hostname())
@@ -1141,12 +1138,6 @@ func (a *App) processUIEvents(w *app.Window, events []UIEvent, act jni.Object, s
 		case BeExitNodeEvent:
 			requestBackend(e)
 		case ExitAllowLANEvent:
-			requestBackend(e)
-		case AllowIncomingTransactionsEvent:
-			requestBackend(e)
-		case UseTailscaleDNSEvent:
-			requestBackend(e)
-		case UseTailscaleSubnetsEvent:
 			requestBackend(e)
 		case WebAuthEvent:
 			a.store.WriteString(loginMethodPrefKey, loginMethodWeb)
